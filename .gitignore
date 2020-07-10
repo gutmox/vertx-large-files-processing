@@ -32,3 +32,4 @@ bazel-bin
 bazel-out
 bazel-testlogs
 bazel-vertx-boost
+bazel-vertx-large-files-processing

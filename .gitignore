@@ -34,3 +34,4 @@ bazel-testlogs
 bazel-vertx-boost
 bazel-vertx-large-files-processing
 large_file.gz
+large_file

@@ -32,15 +32,14 @@ public class LargeFileProcess {
 				}
 			},
 			BufferedReader::close
-		).flatMapCompletable(line -> {
+		).doOnNext(line -> {
 			final int length = line.toString().split(",").length;
 			ai.getAndIncrement();
 			if (length != 8) {
 				System.out.println(length);
 				System.out.println(line);
 			}
-			return Completable.complete();
-		}).doOnTerminate(() -> System.out.println(ai.get()));
+		}).ignoreElements().doOnTerminate(() -> System.out.println(ai.get()));
 	}
 
 	private Completable redFileVertxRecordParser(Vertx vertx, String fileName) {
@@ -50,15 +49,15 @@ public class LargeFileProcess {
 			.flatMapCompletable(csvFile -> RecordParser
 				.newDelimited("\n", csvFile)
 				.toFlowable()
-				.flatMapCompletable(line -> {
+				.doOnNext(line -> {
 					ai.getAndIncrement();
 					final int length = line.toString().split(",").length;
 					if (length != 8) {
 						System.out.println(length);
 						System.out.println(line);
 					}
-					return Completable.complete();
 				})
+				.ignoreElements()
 				.doFinally(csvFile::close)
 			).doOnTerminate(() -> System.out.println(ai.get()));
 	}

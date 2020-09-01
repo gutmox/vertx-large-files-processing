@@ -37,3 +37,5 @@ large_file.gz
 large_file
 large-file.txt
 large-large.txt
+src/main/resources/packages_fixed_all.csv
+src/main/resources/subs_fixed_all_0.csv

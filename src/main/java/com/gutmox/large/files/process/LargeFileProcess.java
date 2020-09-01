@@ -5,29 +5,60 @@ import io.reactivex.Flowable;
 import io.vertx.core.file.OpenOptions;
 import io.vertx.reactivex.core.Vertx;
 import io.vertx.reactivex.core.file.AsyncFile;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class LargeFileProcess {
 
-	Completable doProcess(Vertx vertx) {
+	private final String PATH	= "/Users/pablo.gutierrez/Documents/repositories/my-projects/vertx-large-files-processing/src/main/resources/";
 
-		OpenOptions oo = new OpenOptions();
-		return redFile(vertx, oo, "small_file.txt")
-			.andThen(redFile(vertx, oo, "small_file.txt"));
+	Completable doProcess(Vertx vertx) {
+		return redFilePureRx("packages_fixed_all.csv")
+			.andThen(redFilePureRx("subs_fixed_all_0.csv"));
 	}
 
-	private Completable redFile(Vertx vertx, OpenOptions oo, String fileName) {
-		return vertx.fileSystem().rxOpen(fileName, oo)
-			.doOnError(Throwable::printStackTrace)
-			.flatMapPublisher(AsyncFile::toFlowable).doOnError(Throwable::printStackTrace)
-			.flatMap(buffer -> Flowable.fromArray(buffer.toString().split("\n")))
-			.flatMapCompletable(line -> {
+	private Completable redFilePureRx(String file) {
+		AtomicInteger ai = new AtomicInteger(0);
+		return Flowable.generate(
+			() -> new BufferedReader(new FileReader(
+				PATH + file)),
+			(reader, emitter) -> {
+				final String line = reader.readLine();
+				if (line != null) {
+					emitter.onNext(line);
+				} else {
+					emitter.onComplete();
+				}
+			},
+			BufferedReader::close
+		).flatMapCompletable(line ->{
+			final int length = line.toString().split(",").length;
+			ai.getAndIncrement();
+			if (length != 8) {
+				System.out.println(length);
 				System.out.println(line);
+			}
+			return Completable.complete();
+		}).doOnTerminate(() -> System.out.println(ai.get()));
+	}
+
+	private Completable redFileVertx(Vertx vertx, String fileName) {
+		return vertx.fileSystem().rxOpen(fileName, new OpenOptions())
+			.doOnError(Throwable::printStackTrace)
+			.flatMapPublisher(AsyncFile::toFlowable)
+			.doOnError(Throwable::printStackTrace)
+			.flatMap(buffer -> Flowable.fromArray(buffer.toString(StandardCharsets.UTF_8).split("\\n")))
+			.flatMapCompletable(line -> {
+				final int length = line.split(",").length;
+				if (length != 8) {
+					System.out.println(length);
+					System.out.println(line);
+				}
 				return Completable.complete();
 			})
-			.doFinally(() ->{
-				System.out.println("--------------------------------------");
-				System.out.println("--------------------------------------");
-				System.out.println("--------------------------------------");
+			.doFinally(() -> {
 				System.out.println("--------------------------------------");
 				System.out.println("--------------------------------------");
 			});

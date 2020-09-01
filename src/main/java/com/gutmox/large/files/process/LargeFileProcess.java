@@ -5,6 +5,7 @@ import io.reactivex.Flowable;
 import io.vertx.core.file.OpenOptions;
 import io.vertx.reactivex.core.Vertx;
 import io.vertx.reactivex.core.file.AsyncFile;
+import io.vertx.reactivex.core.parsetools.RecordParser;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.nio.charset.StandardCharsets;
@@ -12,18 +13,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class LargeFileProcess {
 
-	private final String PATH	= "/Users/pablo.gutierrez/Documents/repositories/my-projects/vertx-large-files-processing/src/main/resources/";
+	private final String PATH = "/Users/pablo.gutierrez/Documents/repositories/my-projects/vertx-large-files-processing/src/main/resources/";
 
 	Completable doProcess(Vertx vertx) {
 		return redFilePureRx("packages_fixed_all.csv")
-			.andThen(redFilePureRx("subs_fixed_all_0.csv"));
+			.andThen(redFileVertxRecordParser(vertx, "subs_fixed_all_0.csv"));
 	}
 
 	private Completable redFilePureRx(String file) {
 		AtomicInteger ai = new AtomicInteger(0);
-		return Flowable.generate(
-			() -> new BufferedReader(new FileReader(
-				PATH + file)),
+		return Flowable.generate(() -> new BufferedReader(new FileReader(PATH + file)),
 			(reader, emitter) -> {
 				final String line = reader.readLine();
 				if (line != null) {
@@ -33,7 +32,7 @@ public class LargeFileProcess {
 				}
 			},
 			BufferedReader::close
-		).flatMapCompletable(line ->{
+		).flatMapCompletable(line -> {
 			final int length = line.toString().split(",").length;
 			ai.getAndIncrement();
 			if (length != 8) {
@@ -42,6 +41,26 @@ public class LargeFileProcess {
 			}
 			return Completable.complete();
 		}).doOnTerminate(() -> System.out.println(ai.get()));
+	}
+
+	private Completable redFileVertxRecordParser(Vertx vertx, String fileName) {
+		AtomicInteger ai = new AtomicInteger(0);
+		return vertx.fileSystem().rxOpen(fileName, new OpenOptions())
+			.doOnError(Throwable::printStackTrace)
+			.flatMapCompletable(csvFile -> RecordParser
+				.newDelimited("\n", csvFile)
+				.toFlowable()
+				.flatMapCompletable(line -> {
+					ai.getAndIncrement();
+					final int length = line.toString().split(",").length;
+					if (length != 8) {
+						System.out.println(length);
+						System.out.println(line);
+					}
+					return Completable.complete();
+				})
+				.doFinally(csvFile::close)
+			).doOnTerminate(() -> System.out.println(ai.get()));
 	}
 
 	private Completable redFileVertx(Vertx vertx, String fileName) {

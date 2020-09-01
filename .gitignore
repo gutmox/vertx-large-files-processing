@@ -35,3 +35,5 @@ bazel-vertx-boost
 bazel-vertx-large-files-processing
 large_file.gz
 large_file
+large-file.txt
+large-large.txt
